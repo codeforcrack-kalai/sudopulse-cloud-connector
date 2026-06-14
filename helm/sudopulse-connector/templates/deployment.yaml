@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sudopulse-connector.fullname" . }}
+  labels:
+    {{- include "sudopulse-connector.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "sudopulse-connector.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "sudopulse-connector.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: SUDOPULSE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sudopulse-connector.fullname" . }}
+                  key: token
+            - name: GATEWAY_URL
+              value: {{ .Values.config.gatewayUrl | quote }}
+            - name: API_URL
+              value: {{ .Values.config.apiUrl | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}

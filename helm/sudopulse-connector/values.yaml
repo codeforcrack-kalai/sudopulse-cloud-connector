@@ -1,0 +1,25 @@
+image:
+  repository: sudopulse/connector
+  tag: latest
+  pullPolicy: IfNotPresent
+
+token: ""
+
+config:
+  gatewayUrl: "https://gateway.sudopulse.internal"
+  apiUrl: "https://api.sudopulse.internal"
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+nameOverride: ""
+fullnameOverride: ""

@@ -40,7 +40,7 @@ if [ "$OS" != "linux" ] && [ "$OS" != "darwin" ]; then
     exit 1
 fi
 
-BINARY_URL="https://github.com/sudopulse/connector/releases/latest/download/sudopulse-connector-${OS}-${ARCH}"
+BINARY_URL="https://github.com/codeforcrack-kalai/sudopulse-cloud-connector/releases/latest/download/sudopulse-connector-${OS}-${ARCH}"
 BIN_PATH="/usr/local/bin/sudopulse-connector"
 
 echo "Downloading SudoPulse Connector for ${OS}-${ARCH}..."

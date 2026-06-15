@@ -13,16 +13,22 @@ import (
 	"time"
 )
 
-// RegisterResponse is the API response from the initial registration endpoint.
-type RegisterResponse struct {
-	ConnectorID  string `json:"connectorId"`
-	SessionToken string `json:"sessionToken"`
-	SessionExpiry string `json:"sessionExpiry"`
-	GatewayWSURL string `json:"gatewayWsUrl"`
+// APIResponse wraps the standard API response format.
+type APIResponse struct {
+	Success bool            `json:"success"`
+	Data    json.RawMessage `json:"data"`
 }
 
-// RefreshResponse is the API response from the token refresh endpoint.
-type RefreshResponse struct {
+// RegisterData is the nested data from the registration endpoint.
+type RegisterData struct {
+	ConnectorID   string `json:"connectorId"`
+	SessionToken  string `json:"sessionToken"`
+	SessionExpiry string `json:"sessionExpiry"`
+	GatewayWSURL  string `json:"gatewayWsUrl"`
+}
+
+// RefreshData is the nested data from the refresh endpoint.
+type RefreshData struct {
 	SessionToken  string `json:"sessionToken"`
 	SessionExpiry string `json:"sessionExpiry"`
 }
@@ -30,7 +36,7 @@ type RefreshResponse struct {
 var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 // Register exchanges a one-time install token for a persistent connector identity.
-func Register(ctx context.Context, apiURL, installToken string) (*RegisterResponse, error) {
+func Register(ctx context.Context, apiURL, installToken string) (*RegisterData, error) {
 	body, err := json.Marshal(map[string]string{"token": installToken})
 	if err != nil {
 		return nil, fmt.Errorf("marshal register body: %w", err)
@@ -60,9 +66,14 @@ func Register(ctx context.Context, apiURL, installToken string) (*RegisterRespon
 		return nil, fmt.Errorf("register failed: status %d, body: %s", resp.StatusCode, string(respBody))
 	}
 
-	var result RegisterResponse
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("parse register response: %w", err)
+	var apiRes APIResponse
+	if err := json.Unmarshal(respBody, &apiRes); err != nil {
+		return nil, fmt.Errorf("parse register API response: %w", err)
+	}
+
+	var result RegisterData
+	if err := json.Unmarshal(apiRes.Data, &result); err != nil {
+		return nil, fmt.Errorf("parse register data: %w", err)
 	}
 
 	slog.Info("registration successful", "connectorId", result.ConnectorID)
@@ -70,7 +81,7 @@ func Register(ctx context.Context, apiURL, installToken string) (*RegisterRespon
 }
 
 // Refresh exchanges the current session token for a new one before expiry.
-func Refresh(ctx context.Context, apiURL, connectorID, sessionToken string) (*RefreshResponse, error) {
+func Refresh(ctx context.Context, apiURL, connectorID, sessionToken string) (*RefreshData, error) {
 	body, err := json.Marshal(map[string]string{"connectorId": connectorID})
 	if err != nil {
 		return nil, fmt.Errorf("marshal refresh body: %w", err)
@@ -101,9 +112,14 @@ func Refresh(ctx context.Context, apiURL, connectorID, sessionToken string) (*Re
 		return nil, fmt.Errorf("refresh failed: status %d, body: %s", resp.StatusCode, string(respBody))
 	}
 
-	var result RefreshResponse
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("parse refresh response: %w", err)
+	var apiRes APIResponse
+	if err := json.Unmarshal(respBody, &apiRes); err != nil {
+		return nil, fmt.Errorf("parse refresh API response: %w", err)
+	}
+
+	var result RefreshData
+	if err := json.Unmarshal(apiRes.Data, &result); err != nil {
+		return nil, fmt.Errorf("parse refresh data: %w", err)
 	}
 
 	slog.Info("session token refreshed", "connectorId", connectorID)

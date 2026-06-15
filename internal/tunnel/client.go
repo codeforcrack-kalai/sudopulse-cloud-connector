@@ -16,7 +16,7 @@ import (
 // session over the connection. The returned session allows the gateway to open
 // multiplexed streams back to this connector.
 func Connect(ctx context.Context, gatewayWSURL, connectorID, sessionToken string) (*yamux.Session, error) {
-	url := gatewayWSURL + "/connector-hub"
+	url := gatewayWSURL
 	slog.Info("connecting to gateway", "url", url, "connectorId", connectorID)
 
 	headers := http.Header{

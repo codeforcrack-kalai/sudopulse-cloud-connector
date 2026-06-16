@@ -3,6 +3,7 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
 
 	"github.com/hashicorp/yamux"
 )
@@ -84,7 +86,17 @@ func handleStream(ctx context.Context, stream *yamux.Stream) {
 	// stream → TCP target
 	go func() {
 		defer wg.Done()
-		n, _ := io.Copy(conn, decoder.Buffered()) // flush any buffered data from the JSON decoder
+		
+		// Flush and trim any buffered data from the JSON decoder (removes trailing newline)
+		buffered, _ := io.ReadAll(decoder.Buffered())
+		trimmed := bytes.TrimLeftFunc(buffered, unicode.IsSpace)
+		
+		var n int64
+		if len(trimmed) > 0 {
+			nw, _ := conn.Write(trimmed)
+			n = int64(nw)
+		}
+		
 		rx, _ := io.Copy(conn, stream)
 		rxBytes = n + rx
 		// Signal the TCP side we're done writing.

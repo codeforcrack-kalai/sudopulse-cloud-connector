@@ -5,6 +5,7 @@ package tunnel
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -47,7 +48,7 @@ func Connect(ctx context.Context, gatewayWSURL, connectorID, sessionToken string
 	// yamux.Client creates a client-side session. The gateway acts as the
 	// server and opens streams towards us.
 	yamuxCfg := yamux.DefaultConfig()
-	yamuxCfg.LogOutput = nil // suppress yamux internal logging; we use slog
+	yamuxCfg.LogOutput = io.Discard // suppress yamux internal logging; we use slog
 
 	session, err := yamux.Client(wrapped, yamuxCfg)
 	if err != nil {

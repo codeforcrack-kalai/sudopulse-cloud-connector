@@ -25,12 +25,15 @@ type RegisterData struct {
 	SessionToken  string `json:"sessionToken"`
 	SessionExpiry string `json:"sessionExpiry"`
 	GatewayWSURL  string `json:"gatewayWsUrl"`
+	TlsCert       string `json:"tlsCert"`
 }
 
 // RefreshData is the nested data from the refresh endpoint.
 type RefreshData struct {
 	SessionToken  string `json:"sessionToken"`
 	SessionExpiry string `json:"sessionExpiry"`
+	GatewayWSURL  string `json:"gatewayWsUrl"`
+	TlsCert       string `json:"tlsCert"`
 }
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}

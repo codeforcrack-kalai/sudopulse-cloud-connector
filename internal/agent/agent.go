@@ -44,7 +44,7 @@ func Run(ctx context.Context, cfg *config.Config) error {
 			"attempt", attempt+1,
 		)
 
-		session, err := tunnel.Connect(ctx, state.GatewayWSURL, state.ConnectorID, state.SessionToken)
+		session, err := tunnel.Connect(ctx, state.GatewayWSURL, state.ConnectorID, state.SessionToken, state.TlsCert)
 		if err != nil {
 			slog.Error("tunnel connection failed", "error", err)
 			attempt++
@@ -68,7 +68,7 @@ func Run(ctx context.Context, cfg *config.Config) error {
 		go runRefresh(connCtx, cfg, state)
 
 		// Block accepting streams until disconnected.
-		proxy.HandleStreams(connCtx, session)
+		proxy.HandleStreams(connCtx, session, cfg.AllowedSubnets)
 
 		// Connection lost — clean up.
 		connCancel()
@@ -119,6 +119,7 @@ func bootstrap(ctx context.Context, cfg *config.Config) (*config.State, error) {
 		ConnectorID:  resp.ConnectorID,
 		SessionToken: resp.SessionToken,
 		GatewayWSURL: gatewayURL,
+		TlsCert:      resp.TlsCert,
 	}
 
 	if err := config.SaveState(cfg.StateDir, state); err != nil {
@@ -147,6 +148,12 @@ func runRefresh(ctx context.Context, cfg *config.Config, state *config.State) {
 				continue
 			}
 			state.SessionToken = resp.SessionToken
+			if resp.GatewayWSURL != "" {
+				state.GatewayWSURL = resp.GatewayWSURL
+			}
+			if resp.TlsCert != "" {
+				state.TlsCert = resp.TlsCert
+			}
 			if err := config.SaveState(cfg.StateDir, state); err != nil {
 				slog.Error("failed to save refreshed state", "error", err)
 			}

@@ -16,9 +16,10 @@ const stateFileName = "state.json"
 type Config struct {
 	InstallToken string
 	GatewayURL   string
-	APIURL       string
-	LogLevel     string
-	StateDir     string
+	APIURL         string
+	LogLevel       string
+	StateDir       string
+	AllowedSubnets string
 }
 
 // State holds the persistent registration state saved between restarts.
@@ -26,15 +27,13 @@ type State struct {
 	ConnectorID  string `json:"connectorId"`
 	SessionToken string `json:"sessionToken"`
 	GatewayWSURL string `json:"gatewayWsUrl"`
+	TlsCert      string `json:"tlsCert,omitempty"`
 }
 
 // Validate checks that the minimum required configuration is present.
 func (c *Config) Validate() error {
 	if c.APIURL == "" {
 		return errors.New("api-url is required (--api-url or SUDOPULSE_API_URL)")
-	}
-	if c.GatewayURL == "" {
-		return errors.New("gateway-url is required (--gateway-url or SUDOPULSE_GATEWAY_URL)")
 	}
 	return nil
 }

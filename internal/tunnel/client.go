@@ -4,10 +4,13 @@ package tunnel
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/yamux"
@@ -16,7 +19,7 @@ import (
 // Connect dials the gateway WebSocket endpoint and establishes a yamux client
 // session over the connection. The returned session allows the gateway to open
 // multiplexed streams back to this connector.
-func Connect(ctx context.Context, gatewayWSURL, connectorID, sessionToken string) (*yamux.Session, error) {
+func Connect(ctx context.Context, gatewayWSURL, connectorID, sessionToken, tlsCert string) (*yamux.Session, error) {
 	url := gatewayWSURL
 	slog.Info("connecting to gateway", "url", url, "connectorId", connectorID)
 
@@ -27,6 +30,16 @@ func Connect(ctx context.Context, gatewayWSURL, connectorID, sessionToken string
 
 	dialer := websocket.Dialer{
 		HandshakeTimeout: websocket.DefaultDialer.HandshakeTimeout,
+	}
+
+	if tlsCert != "" {
+		certPool := x509.NewCertPool()
+		if ok := certPool.AppendCertsFromPEM([]byte(tlsCert)); !ok {
+			return nil, fmt.Errorf("failed to parse gateway tls cert")
+		}
+		dialer.TLSClientConfig = &tls.Config{
+			RootCAs: certPool,
+		}
 	}
 
 	wsConn, resp, err := dialer.DialContext(ctx, url, headers)
@@ -49,6 +62,10 @@ func Connect(ctx context.Context, gatewayWSURL, connectorID, sessionToken string
 	// server and opens streams towards us.
 	yamuxCfg := yamux.DefaultConfig()
 	yamuxCfg.LogOutput = io.Discard // suppress yamux internal logging; we use slog
+	yamuxCfg.EnableKeepAlive = true
+	yamuxCfg.KeepAliveInterval = 15 * time.Second
+	yamuxCfg.ConnectionWriteTimeout = 10 * time.Second
+	yamuxCfg.MaxStreamWindowSize = 1024 * 1024 // 1MB per stream
 
 	session, err := yamux.Client(wrapped, yamuxCfg)
 	if err != nil {

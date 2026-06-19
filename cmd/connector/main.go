@@ -34,6 +34,8 @@ func main() {
 		"log level: debug, info, warn, error (env: LOG_LEVEL)")
 	stateDir := flag.String("state-dir", config.EnvOrDefault("SUDOPULSE_STATE_DIR", "/etc/sudopulse-connector/"),
 		"directory for state.json (env: SUDOPULSE_STATE_DIR)")
+	allowedSubnets := flag.String("allowed-subnets", config.EnvOrDefault("SUDOPULSE_ALLOWED_SUBNETS", ""),
+		"comma-separated list of allowed CIDRs to proxy (e.g., '10.0.0.0/8,192.168.1.0/24'). Empty means allow all. (env: SUDOPULSE_ALLOWED_SUBNETS)")
 
 	flag.Parse()
 
@@ -52,9 +54,10 @@ func main() {
 	cfg := &config.Config{
 		InstallToken: *token,
 		GatewayURL:   *gatewayURL,
-		APIURL:       *apiURL,
-		LogLevel:     *logLevel,
-		StateDir:     *stateDir,
+		APIURL:         *apiURL,
+		LogLevel:       *logLevel,
+		StateDir:       *stateDir,
+		AllowedSubnets: *allowedSubnets,
 	}
 
 	if err := cfg.Validate(); err != nil {

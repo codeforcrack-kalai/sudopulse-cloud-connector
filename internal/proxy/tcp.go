@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -31,7 +32,25 @@ var ActiveSessions atomic.Int64
 // HandleStreams accepts new yamux streams from the gateway and proxies each
 // one to the requested TCP target. It blocks until ctx is cancelled or the
 // yamux session is closed.
-func HandleStreams(ctx context.Context, session *yamux.Session) {
+func HandleStreams(ctx context.Context, session *yamux.Session, allowedSubnetsStr string) {
+	var allowedSubnets []*net.IPNet
+	if allowedSubnetsStr != "" {
+		parts := strings.Split(allowedSubnetsStr, ",")
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p == "" {
+				continue
+			}
+			_, ipNet, err := net.ParseCIDR(p)
+			if err != nil {
+				slog.Error("failed to parse allowed subnet, ignoring", "subnet", p, "error", err)
+				continue
+			}
+			allowedSubnets = append(allowedSubnets, ipNet)
+		}
+		slog.Info("parsed allowed subnets", "count", len(allowedSubnets))
+	}
+
 	for {
 		stream, err := session.AcceptStream()
 		if err != nil {
@@ -43,11 +62,11 @@ func HandleStreams(ctx context.Context, session *yamux.Session) {
 			return
 		}
 
-		go handleStream(ctx, stream)
+		go handleStream(ctx, stream, allowedSubnets)
 	}
 }
 
-func handleStream(ctx context.Context, stream *yamux.Stream) {
+func handleStream(ctx context.Context, stream *yamux.Stream, allowedSubnets []*net.IPNet) {
 	streamID := stream.StreamID()
 	started := time.Now()
 
@@ -66,10 +85,42 @@ func handleStream(ctx context.Context, stream *yamux.Stream) {
 	}
 
 	target := fmt.Sprintf("%s:%d", req.Host, req.Port)
+
+	// Enforce ACL if subnets are configured
+	if len(allowedSubnets) > 0 {
+		targetIP := net.ParseIP(req.Host)
+		if targetIP == nil {
+			ips, err := net.LookupIP(req.Host)
+			if err != nil || len(ips) == 0 {
+				slog.Error("failed to resolve request host, rejected by ACL", "host", req.Host, "error", err)
+				stream.Close()
+				return
+			}
+			targetIP = ips[0]
+		}
+
+		allowed := false
+		for _, net := range allowedSubnets {
+			if net.Contains(targetIP) {
+				allowed = true
+				break
+			}
+		}
+
+		if !allowed {
+			slog.Error("request host is not in allowed subnets, rejected", "host", req.Host)
+			stream.Close()
+			return
+		}
+	}
+
 	slog.Info("proxying stream", "streamId", streamID, "target", target)
 
 	// Dial the target within the private network.
-	dialer := net.Dialer{Timeout: 10 * time.Second}
+	dialer := net.Dialer{
+		Timeout:   10 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
 	conn, err := dialer.DialContext(ctx, "tcp", target)
 	if err != nil {
 		slog.Error("failed to dial target", "streamId", streamID, "target", target, "error", err)

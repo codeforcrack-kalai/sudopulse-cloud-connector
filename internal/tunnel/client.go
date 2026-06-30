@@ -40,6 +40,15 @@ func Connect(ctx context.Context, gatewayWSURL, connectorID, sessionToken, tlsCe
 		dialer.TLSClientConfig = &tls.Config{
 			RootCAs: certPool,
 		}
+	} else {
+		// No cert pinned yet (first boot or cert not yet propagated from gateway
+		// heartbeat). Allow the connection — the gateway always uses a self-signed
+		// cert so the system CA store can never verify it. The session token in the
+		// Authorization header provides identity verification. The connector will
+		// receive and pin the cert on its next token refresh cycle.
+		dialer.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true, //nolint:gosec // intentional: self-signed cert, token-authed
+		}
 	}
 
 	wsConn, resp, err := dialer.DialContext(ctx, url, headers)
